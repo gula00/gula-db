@@ -199,7 +199,7 @@ class LeafNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
-        // TODO: (proj2): implement
+        // (proj2): implement
         int maxKeys = (int) Math.ceil(2 * metadata.getOrder() * fillFactor);
 
         while (data.hasNext() && keys.size() < maxKeys) {
