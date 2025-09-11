@@ -157,10 +157,27 @@ class LeafNode extends BPlusNode {
         return this;
     }
 
+    // gula Added
+    private Optional<Pair<DataBox, Long>> splitNode(int splitIndex) {
+        // Split keys and rids at the given index
+        List<DataBox> newKeys = new ArrayList<>(keys.subList(splitIndex, keys.size()));
+        List<RecordId> newRids = new ArrayList<>(rids.subList(splitIndex, rids.size()));
+        keys = keys.subList(0, splitIndex);
+        rids = rids.subList(0, splitIndex);
+
+        // Create a new sibling node
+        LeafNode sibling = new LeafNode(metadata, bufferManager, newKeys, newRids, rightSibling, treeContext);
+        rightSibling = Optional.of(sibling.getPage().getPageNum());
+        sync();
+
+        // Return the split key and the sibling's page number
+        return Optional.of(new Pair<>(newKeys.get(0), sibling.getPage().getPageNum()));
+    }
+
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
+        // (proj2): implement
         if (keys.contains(key)) {
             throw new BPlusTreeException("duplicate key insertion");
         }
@@ -168,29 +185,43 @@ class LeafNode extends BPlusNode {
         keys.add(index, key);
         rids.add(index, rid);
 
-        if (keys.size() <= 2 * metadata.getOrder()) {
+        int order = metadata.getOrder();
+        if (keys.size() <= 2 * order) {
             sync();
             return Optional.empty();
+        } else {
+            // Use the splitNode method to handle splitting logic
+            return splitNode(order);
         }
-
-        return Optional.empty();
     }
 
     // See BPlusNode.bulkLoad.
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
-        // TODO(proj2): implement
+        // TODO: (proj2): implement
+        int maxKeys = (int) Math.ceil(2 * metadata.getOrder() * fillFactor);
 
+        while (data.hasNext() && keys.size() < maxKeys) {
+            Pair<DataBox, RecordId> pair = data.next();
+            keys.add(pair.getFirst());
+            rids.add(pair.getSecond());
+        }
+
+        if (data.hasNext()) {
+            return splitNode(maxKeys);
+        }
+
+        sync();
         return Optional.empty();
     }
 
     // See BPlusNode.remove.
     @Override
     public void remove(DataBox key) {
-        // TODO(proj2): implement
+        // (proj2): implement
         int index = keys.indexOf(key);
-        if (index == -1) {
+        if (index != -1) {
             keys.remove(index);
             rids.remove(index);
             sync();
